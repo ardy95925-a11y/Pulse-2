@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pulse - Voice Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; height: 100vh; }
+        
+        .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; }
+        .screen.active { display: flex; }
+        
+        /* AUTH */
+        #authScreen { align-items: center; justify-content: center; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .auth-box { text-align: center; width: 90%; max-width: 400px; }
+        .logo { font-size: 3rem; margin-bottom: 1rem; }
+        .app-name { font-size: 2rem; font-weight: bold; color: #6366f1; margin-bottom: 1rem; }
+        .subtitle { color: #cbd5e1; margin-bottom: 2rem; }
+        
+        .btn { 
+            width: 100%; padding: 1rem; border: none; border-radius: 0.75rem; 
+            font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s;
+        }
+        .btn-primary { background: #6366f1; color: white; margin-bottom: 1rem; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        
+        /* APP */
+        #appScreen { flex-direction: column; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #1e293b; border-bottom: 1px solid #475569; }
+        .title { font-size: 1.5rem; font-weight: bold; }
+        
+        .content { display: grid; grid-template-columns: 220px 1fr; flex: 1; }
+        
+        /* SIDEBAR */
+        .sidebar { background: #1e293b; border-right: 1px solid #475569; }
+        .sidebar-title { padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #475569; }
+        .sidebar-title h2 { font-size: 1rem; }
+        .add-btn { width: 30px; height: 30px; border-radius: 50%; background: #6366f1; border: none; color: white; cursor: pointer; }
+        .friends-box { overflow-y: auto; height: calc(100% - 50px); }
+        .friend { padding: 1rem; border-bottom: 1px solid #475569; cursor: pointer; }
+        .friend:hover { background: #334155; }
+        .friend.active { background: #6366f1; }
+        
+        /* MAIN */
+        .main { display: flex; flex-direction: column; }
+        .empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #94a3b8; }
+        
+        .chat { display: none; flex-direction: column; height: 100%; }
+        .chat.active { display: flex; }
+        .chat-header { padding: 1rem; background: #1e293b; border-bottom: 1px solid #475569; display: flex; justify-content: space-between; align-items: center; }
+        .msgs { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        .msg { display: flex; }
+        .msg.own { justify-content: flex-end; }
+        .bubble { padding: 0.75rem 1rem; border-radius: 0.75rem; max-width: 70%; }
+        .bubble.own { background: #6366f1; }
+        .bubble.other { background: #334155; }
+        
+        .input-box { display: flex; gap: 0.5rem; padding: 1rem; background: #1e293b; border-top: 1px solid #475569; }
+        .input-box input { flex: 1; padding: 0.75rem; background: #334155; border: none; border-radius: 0.5rem; color: white; }
+        .input-box button { width: 40px; background: #6366f1; border: none; border-radius: 0.5rem; color: white; cursor: pointer; }
+        
+        .voice-chat { display: none; flex-direction: column; height: 100%; }
+        .voice-chat.active { display: flex; }
+        .voice-header { padding: 1rem; background: #1e293b; border-bottom: 1px solid #475569; }
+        .voice-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; padding: 2rem; }
+        .participants-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; width: 100%; }
+        .participant { background: #1e293b; border: 1px solid #475569; border-radius: 0.75rem; padding: 1rem; text-align: center; }
+        .avatar { width: 60px; height: 60px; background: #6366f1; border-radius: 50%; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        
+        .controls { display: flex; gap: 1rem; justify-content: center; }
+        .control-btn { width: 50px; height: 50px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.2rem; }
+        .mute { background: #334155; border: 2px solid #475569; }
+        .mute.on { background: #ef4444; }
+        .leave { background: #ef4444; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 999; }
+        .modal.active { display: flex; }
+        .modal-box { background: #1e293b; border: 1px solid #475569; border-radius: 0.75rem; padding: 1.5rem; width: 90%; max-width: 350px; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 1rem; }
+        .modal-header h2 { font-size: 1.2rem; }
+        .modal-close { background: none; border: none; color: #cbd5e1; font-size: 1.5rem; cursor: pointer; }
+        .modal-input { width: 100%; padding: 0.75rem; background: #334155; border: 1px solid #475569; border-radius: 0.5rem; color: white; margin-bottom: 1rem; }
+        
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+    </style>
+</head>
+<body>
+    <!-- LOGIN SCREEN -->
+    <div id="authScreen" class="screen active">
+        <div class="auth-box">
+            <div class="logo">📱</div>
+            <div class="app-name">Pulse</div>
+            <p class="subtitle">Voice Chat & Messaging</p>
+            <button id="loginBtn" class="btn btn-primary">🔵 Sign In with Google</button>
+            <p style="color: #94a3b8; font-size: 0.85rem;">Firebase powered • Real-time messaging • Secure</p>
+        </div>
+    </div>
+
+    <!-- APP SCREEN -->
+    <div id="appScreen" class="screen">
+        <div class="header">
+            <div>
+                <div class="title">Pulse</div>
+                <div style="color: #cbd5e1; font-size: 0.85rem;" id="userEmail">Loading...</div>
+            </div>
+            <button id="logoutBtn" class="btn btn-danger" style="width: auto; padding: 0.5rem 1.5rem;">Sign Out</button>
+        </div>
+
+        <div class="content">
+            <!-- FRIENDS SIDEBAR -->
+            <div class="sidebar">
+                <div class="sidebar-title">
+                    <h2>Friends</h2>
+                    <button id="addFriendBtn" class="add-btn">+</button>
+                </div>
+                <div class="friends-box" id="friendsList">
+                    <div style="padding: 1rem; color: #94a3b8; text-align: center; font-size: 0.9rem;">No friends</div>
+                </div>
+            </div>
+
+            <!-- MAIN AREA -->
+            <div class="main">
+                <!-- EMPTY STATE -->
+                <div class="empty" id="emptyState">
+                    <div style="text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">💬</div>
+                        <div>Select a friend to chat</div>
+                    </div>
+                </div>
+
+                <!-- CHAT VIEW -->
+                <div class="chat" id="chatView">
+                    <div class="chat-header">
+                        <span id="friendName">Friend</span>
+                        <button id="callBtn" class="btn btn-primary" style="width: auto; padding: 0.5rem 1rem; margin: 0;">📞 Call</button>
+                    </div>
+                    <div class="msgs" id="messagesList"></div>
+                    <div class="input-box">
+                        <input id="msgInput" type="text" placeholder="Message...">
+                        <button id="sendBtn">➤</button>
+                    </div>
+                </div>
+
+                <!-- VOICE VIEW -->
+                <div class="voice-chat" id="voiceView">
+                    <div class="voice-header">
+                        <button class="btn btn-primary" id="backBtn" style="width: auto; padding: 0.5rem 1rem;">← Back</button>
+                        <span id="voiceTitle" style="flex: 1; text-align: center;">Voice Chat</span>
+                    </div>
+                    <div class="voice-main">
+                        <div class="participants-list" id="participantsList"></div>
+                        <div class="controls">
+                            <button class="control-btn mute" id="muteBtn">🎤</button>
+                            <button class="control-btn leave" id="leaveBtn">📞</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD FRIEND MODAL -->
+    <div id="friendModal" class="modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2>Add Friend</h2>
+                <button id="closeModal" class="modal-close">&times;</button>
+            </div>
+            <input id="friendEmailInput" class="modal-input" type="email" placeholder="Email address">
+            <button id="addSubmitBtn" class="btn btn-primary">Add Friend</button>
+        </div>
+    </div>
+
+    <!-- FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
+
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCW6Utclu2ME1z1AwUj2xwTm_-it-aWFrI",
+            authDomain: "pulse-c5322.firebaseapp.com",
+            projectId: "pulse-c5322",
+            storageBucket: "pulse-c5322.firebasestorage.app",
+            messagingSenderId: "700936968948",
+            appId: "1:700936968948:web:abe29f631b258516551ca1"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let selectedFriend = null;
+        let isMuted = false;
+
+        // DOM Elements
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const authScreen = document.getElementById('authScreen');
+        const appScreen = document.getElementById('appScreen');
+        const userEmail = document.getElementById('userEmail');
+        const friendsList = document.getElementById('friendsList');
+        const emptyState = document.getElementById('emptyState');
+        const chatView = document.getElementById('chatView');
+        const voiceView = document.getElementById('voiceView');
+        const friendName = document.getElementById('friendName');
+        const messagesList = document.getElementById('messagesList');
+        const msgInput = document.getElementById('msgInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const callBtn = document.getElementById('callBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const backBtn = document.getElementById('backBtn');
+        const voiceTitle = document.getElementById('voiceTitle');
+        const participantsList = document.getElementById('participantsList');
+        const addFriendBtn = document.getElementById('addFriendBtn');
+        const friendModal = document.getElementById('friendModal');
+        const closeModal = document.getElementById('closeModal');
+        const friendEmailInput = document.getElementById('friendEmailInput');
+        const addSubmitBtn = document.getElementById('addSubmitBtn');
+
+        // === LOGIN ===
+        loginBtn.addEventListener('click', async () => {
+            try {
+                loginBtn.disabled = true;
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                currentUser = result.user;
+
+                await db.collection("users").doc(currentUser.uid).set({
+                    email: currentUser.email,
+                    name: currentUser.displayName || "User"
+                }, { merge: true });
+
+                showApp();
+            } catch (error) {
+                console.error("Login error:", error);
+                alert("Login failed: " + error.message);
+                loginBtn.disabled = false;
+            }
+        });
+
+        // === LOGOUT ===
+        logoutBtn.addEventListener('click', async () => {
+            await auth.signOut();
+            currentUser = null;
+            showAuth();
+        });
+
+        // === AUTH STATE ===
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                showApp();
+            } else {
+                currentUser = null;
+                showAuth();
+            }
+        });
+
+        // === SCREENS ===
+        function showAuth() {
+            authScreen.classList.add('active');
+            appScreen.classList.remove('active');
+        }
+
+        function showApp() {
+            authScreen.classList.remove('active');
+            appScreen.classList.add('active');
+            userEmail.textContent = currentUser.email;
+            loadFriends();
+        }
+
+        function showChat() {
+            emptyState.style.display = 'none';
+            chatView.classList.add('active');
+            voiceView.classList.remove('active');
+            loadMessages();
+        }
+
+        function showVoice() {
+            emptyState.style.display = 'none';
+            chatView.classList.remove('active');
+            voiceView.classList.add('active');
+            voiceTitle.textContent = `Voice with ${selectedFriend.name}`;
+            loadParticipants();
+        }
+
+        // === FRIENDS ===
+        async function loadFriends() {
+            db.collection("relationships")
+                .where("userId", "==", currentUser.uid)
+                .onSnapshot(snapshot => {
+                    friendsList.innerHTML = '';
+                    if (snapshot.empty) {
+                        friendsList.innerHTML = '<div style="padding: 1rem; color: #94a3b8; text-align: center; font-size: 0.9rem;">No friends</div>';
+                        return;
+                    }
+
+                    snapshot.forEach(async doc => {
+                        const friendId = doc.data().friendId;
+                        const friendDoc = await db.collection("users").doc(friendId).get();
+                        const friendData = friendDoc.data();
+
+                        const friendEl = document.createElement('div');
+                        friendEl.className = 'friend';
+                        friendEl.textContent = friendData.name || friendData.email;
+                        friendEl.addEventListener('click', () => {
+                            selectedFriend = { id: friendId, ...friendData };
+                            document.querySelectorAll('.friend').forEach(f => f.classList.remove('active'));
+                            friendEl.classList.add('active');
+                            showChat();
+                        });
+
+                        friendsList.appendChild(friendEl);
+                    });
+                });
+        }
+
+        // === ADD FRIEND ===
+        addFriendBtn.addEventListener('click', () => {
+            friendModal.classList.add('active');
+            friendEmailInput.focus();
+        });
+
+        closeModal.addEventListener('click', () => {
+            friendModal.classList.remove('active');
+        });
+
+        addSubmitBtn.addEventListener('click', async () => {
+            const email = friendEmailInput.value.trim();
+            if (!email) return;
+
+            try {
+                const userSnap = await db.collection("users").where("email", "==", email).get();
+                if (userSnap.empty) {
+                    alert("User not found");
+                    return;
+                }
+
+                const friendId = userSnap.docs[0].id;
+
+                await db.collection("relationships").doc(`${currentUser.uid}_${friendId}`).set({
+                    userId: currentUser.uid,
+                    friendId: friendId
+                });
+
+                await db.collection("relationships").doc(`${friendId}_${currentUser.uid}`).set({
+                    userId: friendId,
+                    friendId: currentUser.uid
+                });
+
+                alert("Friend added!");
+                friendEmailInput.value = '';
+                friendModal.classList.remove('active');
+                loadFriends();
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        });
+
+        // === MESSAGES ===
+        async function loadMessages() {
+            messagesList.innerHTML = '';
+            const convId = [currentUser.uid, selectedFriend.id].sort().join('_');
+
+            db.collection("messages")
+                .where("convId", "==", convId)
+                .orderBy("timestamp", "asc")
+                .limit(50)
+                .onSnapshot(snapshot => {
+                    messagesList.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const msg = doc.data();
+                        const isOwn = msg.senderId === currentUser.uid;
+
+                        const msgEl = document.createElement('div');
+                        msgEl.className = `msg ${isOwn ? 'own' : ''}`;
+                        msgEl.innerHTML = `<div class="bubble ${isOwn ? 'own' : 'other'}">${msg.text}</div>`;
+                        messagesList.appendChild(msgEl);
+                    });
+                    messagesList.scrollTop = messagesList.scrollHeight;
+                });
+        }
+
+        sendBtn.addEventListener('click', async () => {
+            const text = msgInput.value.trim();
+            if (!text) return;
+
+            const convId = [currentUser.uid, selectedFriend.id].sort().join('_');
+            await db.collection("messages").add({
+                convId: convId,
+                senderId: currentUser.uid,
+                text: text,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            msgInput.value = '';
+        });
+
+        msgInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') sendBtn.click();
+        });
+
+        // === VOICE ===
+        callBtn.addEventListener('click', showVoice);
+
+        function loadParticipants() {
+            participantsList.innerHTML = `
+                <div class="participant">
+                    <div class="avatar">Y</div>
+                    <div>You</div>
+                </div>
+                <div class="participant">
+                    <div class="avatar">${selectedFriend.name?.[0] || 'F'}</div>
+                    <div>${selectedFriend.name}</div>
+                </div>
+            `;
+        }
+
+        muteBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            muteBtn.classList.toggle('on');
+        });
+
+        leaveBtn.addEventListener('click', showChat);
+        backBtn.addEventListener('click', showChat);
+
+        showAuth();
+    </script>
+</body>
+</html>
