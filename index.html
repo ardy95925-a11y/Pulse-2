@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Pulse - Video Calling</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.17.1/AgoraRTC_N.js"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="screen active">
+        <div class="login-container">
+            <div class="pulse-logo">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="2" class="pulse-ring"/>
+                    <circle cx="50" cy="50" r="25" fill="currentColor"/>
+                </svg>
+            </div>
+            <h1>Pulse</h1>
+            <p>Call your friends instantly</p>
+            
+            <div id="googleLoginDiv" class="google-login"></div>
+            
+            <div class="divider">or</div>
+            
+            <button id="guestLoginBtn" class="btn btn-secondary">Continue as Guest</button>
+            
+            <p class="privacy-note">Sign in to save your contacts and call history</p>
+        </div>
+    </div>
+
+    <!-- Main App Screen -->
+    <div id="appScreen" class="screen">
+        <div class="app-container">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div class="user-profile">
+                        <img id="userAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e0e7ff'/%3E%3Ccircle cx='50' cy='35' r='15' fill='%234f46e5'/%3E%3Cpath d='M20 80 Q50 65 80 80' fill='%234f46e5'/%3E%3C/svg%3E" alt="User">
+                        <span id="userName">Guest</span>
+                    </div>
+                    <button id="logoutBtn" class="btn-icon" title="Logout">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 3l7 7m-7 0l7-7M16 10l8 0"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="contacts-section">
+                    <h3>Friends</h3>
+                    <div id="contactsList" class="contacts-list">
+                        <p class="empty-state">No contacts yet. Add a friend to start calling.</p>
+                    </div>
+                    <button id="addContactBtn" class="btn btn-small">+ Add Friend</button>
+                </div>
+
+                <div class="recent-section">
+                    <h3>Recent</h3>
+                    <div id="recentList" class="recent-list">
+                        <p class="empty-state">No recent calls</p>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- Idle State -->
+                <div id="idleState" class="state active">
+                    <div class="idle-container">
+                        <div class="idle-icon">
+                            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="2" class="pulse-ring"/>
+                                <circle cx="50" cy="50" r="25" fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <h2>Ready to Connect</h2>
+                        <p>Select a friend to call or create a new call</p>
+                    </div>
+                </div>
+
+                <!-- Call Screen -->
+                <div id="callState" class="state">
+                    <div class="call-container">
+                        <!-- Remote Video -->
+                        <div class="video-area remote">
+                            <video id="remoteVideo" playsinline muted></video>
+                            <div class="video-placeholder">
+                                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="50" cy="35" r="10" fill="currentColor"/>
+                                    <path d="M30 70 Q50 60 70 70" fill="currentColor"/>
+                                </svg>
+                                <span id="remoteName">Friend</span>
+                                <span class="call-status" id="callStatus">Connecting...</span>
+                            </div>
+                        </div>
+
+                        <!-- Local Video -->
+                        <div class="video-area local">
+                            <video id="localVideo" playsinline autoplay muted></video>
+                        </div>
+
+                        <!-- Call Controls -->
+                        <div class="call-controls">
+                            <button id="toggleAudioBtn" class="control-btn active" title="Mute Audio">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2m-1 7h4v4H4z"/>
+                                </svg>
+                            </button>
+                            
+                            <button id="toggleVideoBtn" class="control-btn active" title="Stop Camera">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M23 7l-7 5 7 5V7z"/>
+                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                </svg>
+                            </button>
+
+                            <button id="shareScreenBtn" class="control-btn" title="Share Screen">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M23 7l-7 5 7 5V7z"/>
+                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                    <line x1="20" y1="3" x2="20" y2="9"/>
+                                </svg>
+                            </button>
+
+                            <button id="fileShareBtn" class="control-btn" title="Share File">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                            </button>
+
+                            <button id="endCallBtn" class="control-btn end-call" title="End Call">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M23 16.5v3a2 2 0 0 1-2 2h-3a23 23 0 0 1-10-2.5 23.001 23.001 0 0 1-6.7-6.7A23 23 0 0 1 2 6V3a2 2 0 0 1 2-2h3l2.36 7.08a2 2 0 0 1-.46 2.28l-1.88 1.88a16 16 0 0 0 4.1 5.9l1.88-1.88a2 2 0 0 1 2.28-.46L23 16.5z"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Call Timer -->
+                        <div class="call-timer" id="callTimer">00:00</div>
+                    </div>
+                </div>
+
+                <!-- File Sharing -->
+                <div id="fileShareModal" class="modal hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Share Files</h3>
+                            <button class="btn-icon close-modal">×</button>
+                        </div>
+                        <div class="file-input-zone" id="fileInputZone">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <p>Drag files here or click to select</p>
+                            <input type="file" id="fileInput" style="display: none;" multiple>
+                        </div>
+                        <div id="uploadedFiles" class="uploaded-files"></div>
+                    </div>
+                </div>
+
+                <!-- Add Contact Modal -->
+                <div id="addContactModal" class="modal hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Add Friend</h3>
+                            <button class="btn-icon close-modal">×</button>
+                        </div>
+                        <input type="text" id="contactEmail" placeholder="Friend's email or username" class="input">
+                        <button id="addContactSubmitBtn" class="btn btn-primary">Add Friend</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Hidden input for file sharing -->
+    <input type="file" id="fileInputHidden" style="display: none;" multiple>
+
+    <script src="firebase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="call.js"></script>
+</body>
+</html>
